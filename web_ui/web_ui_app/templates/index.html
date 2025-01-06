@@ -2,55 +2,43 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Interactive Chat</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LM Studio Chat</title>
+	<link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <h1>Interactive Chat</h1>
-    <form id="chatForm">
-        <label for="model">Select a Model:</label>
-        <select id="model" name="model">
-            {% for model in models %}
-                <option value="{{ model }}">{{ model }}</option>
-            {% endfor %}
-        </select><br><br>
 
-        <label for="chat_input">Enter your message:</label>
-        <input type="text" id="chat_input" name="chat_input"><br><br>
+    <div class="chat-container">
+        <!-- Model Selector -->
+        <div class="model-selector">
+            <label for="model-selector">Model:</label>
+            <select id="model-selector"></select>
+        </div>
 
-        <button type="submit">Send</button>
-    </form>
+        <!-- Chat Box -->
+        <div class="chat-box" id="chat-box"></div>
 
-    <div id="chat-messages"></div>
+        <!-- Chat Input -->
+        <div class="chat-input">
+            <div class="file-upload">
+                <label for="file-input">📎 Attach Files</label>
+                <input type="file" id="file-input" multiple>
+            </div>
+            <textarea id="user-message" placeholder="Type your message here..."></textarea>
+            <button id="send-message">Send</button>
+        </div>
 
-    <script>
-        $(document).ready(function() {
-            $('#chatForm').on('submit', function(event) {
-                event.preventDefault();
+        <!-- File Preview -->
+        <div class="file-preview" id="file-preview"></div>
+    </div>
 
-                const form = this;
-                const model = $('#model').val();
-                const chat_input = $('#chat_input').val();
+	<div class="theme-selector">
+		<label for="theme-selector">Theme:</label>
+		<select id="theme-selector"></select>
+	</div>
 
-                console.log('Form Data:', { model, chat_input });
-                console.log('Form Data Json Stringified:', JSON.stringify({ model, chat_input }));
-
-                $.ajax({
-                    url: '/submit',
-                    type: 'POST',
-                    data: JSON.stringify({ model, chat_input }),
-                    contentType: 'application/json',
-                    success: function(responseText) {
-                        $('#chat-messages').append('<p><strong>User:</strong> ' + chat_input + '</p>');
-                        $('#chat-messages').append(responseText);
-                    },
-                    error: function(xhr, status, error) {
-                        console.error('Error:', error);
-                        $('#chat-messages').append('<p>Error: Failed to submit message.</p>');
-                    }
-                });
-            });
-        });
-    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/prism.min.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
