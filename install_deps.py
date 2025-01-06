@@ -1,3 +1,4 @@
+import shutil
 from typing import Callable, List, Union, Optional
 
 import click
@@ -27,12 +28,16 @@ class RunsSubprocess:
             activate_cmd = 'source'
             activate_script = scripts_path / "activate"
         return ' '.join([activate_cmd, str(activate_script)])
-    def _assemble_args(self, command: Optional[Union[str, List[str]]]) -> str:
-        invalid_env = (
+    
+    def has_valid_venv(self) -> bool:
+        return not (
                 (self._venv_path is None)
                 or (isinstance(self._venv_path, str) and len(str(self._venv_path)) == 0)
                 or isinstance(self._venv_path, Path) and not self._venv_path.exists()
         )
+    
+    def _assemble_args(self, command: Optional[Union[str, List[str]]]) -> str:
+        invalid_env = not self.has_valid_venv()
         if invalid_env:
             activate_command = None
         else:
@@ -129,3 +134,6 @@ if __name__ == "__main__":
     process_run_func = do_venv_if_user_requires()
     process_run_func(command=['pip install -v pdm'])
     install_dependencies(process_run_func)
+    if process_run_func.has_valid_venv():
+        print(f"In the future, before working with this repository or running commands for pdm or "
+              f"pip, execute the following: {process_run_func._build_venv_activate_command()}")

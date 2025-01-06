@@ -5,7 +5,7 @@ description = "RAG tool to help do things related to DMing or player character s
 authors = [
     {name = "KotoroShinoto", email = "goochmi@gmail.com"},
 ]
-dependencies = ["click>=8.1.8", "urlpath>=1.2.0", "pydantic>=2.10.4", "flask>=3.1.0", "requests>=2.32.3"]
+dependencies = ["click>=8.1.8", "urlpath>=1.2.0", "pydantic>=2.9.2", "flask>=3.1.0", "requests>=2.32.3", "unstructured>=0.11.8", "langchain>=0.3.14", "langchain-community>=0.3.14", "haystack>=0.42", "llama-index>=0.12.9", "unstructured-client>=0.28.1", "openai>=1.59.3"]
 requires-python = ">=3.11"
 readme = "README.md"
 license = {text = "The Unlicense"}
