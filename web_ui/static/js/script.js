@@ -46,9 +46,8 @@ document.addEventListener("DOMContentLoaded", function () {
         // Prepare the payload
         const payload = {
             model: selectedModel,
-            messages: [
-                {role: "user", content: userMessage || "Attached file(s):"}
-            ]
+            chat_input: userMessage,
+            file_upload: []
         };
 
         // Handle file reading
@@ -59,24 +58,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 reader.onload = function (e) {
                     const content = e.target.result;
-                    if (isTextFile) {
-                        // Include file contents directly in the message
-                        payload.messages.push({
-                            role: "user",
-                            content: `File Name: ${file.name}\nContents:\n${content}`
-                        });
-                    } else {
-                        // For non-text files, mention the file
-                        payload.messages.push({
-                            role: "user",
-                            content: `Attached non-text file: ${file.name} (Type: ${file.type})`
-                        });
-                    }
-
-                    // If all files are processed, send to API
-                    if (payload.messages.length === files.length + 1) {
-                        sendToAPI(payload);
-                    }
+                    payload.file_upload.push({
+                        filename: file.name,
+                        type: file.type,
+                        content: content
+                    });
                 };
 
                 if (isTextFile) {
@@ -85,9 +71,8 @@ document.addEventListener("DOMContentLoaded", function () {
                     reader.readAsDataURL(file);
                 }
             }
-        } else {
-            sendToAPI(payload);
         }
+        sendToAPI(payload);
 
         userMessageInput.value = "";
         fileInput.value = "";
