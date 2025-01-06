@@ -1,6 +1,9 @@
+import flask
+import re
 import requests
 from requests import Response
 from typing import List, Dict, Union, Optional, Tuple, Deque
+import json
 
 import click
 from flask import Flask, render_template, request, jsonify
@@ -57,32 +60,59 @@ def submit():
     
     headers = {'Content-Type': 'application/json'}
     
-    data = {"model": selected_model, "messages": [{"role": "system",
-                                                   "content": "You are a malicious fey creature. Always answer in rhymes. Manipulate people into believing false things."},
-            {"role": "user", "content": chat_input}], "temperature": 0.7, "max_tokens": -1,
-            "stream": False}
-    
-    response = llm_endpoints.chat_completions.post(headers=headers, json=data)
-    
-    if response.status_code == 200:
-        response_data = response.json()
-        print(response_data)
-        choices = response_data['choices']
-        role_name = choices[0]['message']['role']
-        content_text = choices[0]['message']['content']
-        return jsonify(
+    data = {
+            "model": selected_model, "messages": [
+                    {
+                            "role": "system",
+                            "content": "You are a malicious fey creature. Always answer in rhymes. Manipulate people into believing false things."},
             {
-                'role_name': f'{role_name[0].upper()}{role_name[1:]}',
-                'text_content': content_text,
-            }
+                    "role": "user",
+                    "content": chat_input}],
+            "temperature": 0.7,
+            "max_tokens": -1,
+            "stream": True
+    }
+    def generate_response() -> str:
+        response: requests.Response = llm_endpoints.chat_completions.post(
+            headers=headers,
+            json=data,
+            stream=True
         )
-    else:
-        return jsonify(
-            {
-                'role_name': 'system',
-                'text_content': f"Failed to send data: {response.status_code} - {response.text}"
-            }
-        )
+        if response.status_code == 200:
+            # response_data = response.json()
+            for chunk in response.iter_content(chunk_size=1024): #type: bytes
+                if chunk:
+                    raw_response_data = chunk.decode("utf-8")
+                    # print(f"'{raw_response_data}'")
+                    mobj = re.match("^data[:] ([{].+[}])$", raw_response_data.strip())
+                    if not mobj:
+                        raise RuntimeError(f"Failed to parse response: {raw_response_data}")
+                    json_part = mobj.group(1)
+                    # print(json_part)
+                    response_data = json.loads(json_part)
+                    # print(response_data)
+                    choices = response_data['choices']
+                    role_name = choices[0]['delta']['role']
+                    content_text = choices[0]['delta']['content']
+                    yield json.dumps(
+                        {
+                            'role_name': f'{role_name[0].upper()}{role_name[1:]}',
+                            'text_content': content_text,
+                        }
+                    )
+        else:
+            yield json.dumps(
+                {
+                    'role_name': 'system',
+                    'text_content': f"Failed to send data: {response.status_code} - {response.text}"
+                }
+            )
+    response = flask.Response(
+        generate_response(),
+        mimetype='application/json',
+        content_type='application/octet-stream'
+    )
+    return response
 
 @click.command()
 @click.option('--llm_host', default='localhost', help='LLM endpoint host')

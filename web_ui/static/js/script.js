@@ -54,8 +54,6 @@ document.addEventListener("DOMContentLoaded", function () {
         if (files.length > 0) {
             for (const file of files) {
                 const reader = new FileReader();
-                const isTextFile = file.type.startsWith('text/');
-
                 reader.onload = function (e) {
                     const content = e.target.result;
                     payload.file_upload.push({
@@ -65,6 +63,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     });
                 };
 
+                const isTextFile = file.type.startsWith('text/');
                 if (isTextFile) {
                     reader.readAsText(file);
                 } else {
