@@ -70,9 +70,19 @@ def submit():
         choices = response_data['choices']
         role_name = choices[0]['message']['role']
         content_text = choices[0]['message']['content']
-        return f"<p><strong>{role_name[0].upper()}{role_name[1:]}</strong>: {content_text}</p>"
+        return jsonify(
+            {
+                'role_name': f'{role_name[0].upper()}{role_name[1:]}',
+                'text_content': content_text,
+            }
+        )
     else:
-        return jsonify({"error": f"Failed to send data: {response.status_code} - {response.text}"})
+        return jsonify(
+            {
+                'role_name': 'system',
+                'text_content': f"Failed to send data: {response.status_code} - {response.text}"
+            }
+        )
 
 @click.command()
 @click.option('--llm_host', default='localhost', help='LLM endpoint host')
