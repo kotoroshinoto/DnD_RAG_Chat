@@ -91,10 +91,11 @@ document.addEventListener("DOMContentLoaded", function () {
             .then(response => response.json())
             .then(data => {
                 console.log(data);
+                appendMessage(data['role_name'], data['text_content'])
             })
             .catch(error => {
                 console.error('Error communicating with LM Studio:', error);
-                appendMessage('lm', 'Failed to communicate with LM Studio.');
+                appendMessage('System', 'Failed to communicate with LM Studio.');
             });
     }
 
