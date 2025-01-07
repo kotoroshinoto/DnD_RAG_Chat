@@ -145,18 +145,21 @@ document.addEventListener("DOMContentLoaded", function () {
             if (value) {
                 const chunk = decoder.decode(value, {stream: true});
                 const response_json = JSON.parse(chunk);
+                // console.log(response_json);
                 const sender = response_json['role_name'];
                 const message = response_json['text_content'];
-                return [sender, message];
+                const streaming_complete = response_json['streaming_complete'];
+                return [sender, message, streaming_complete];
             } else {
+                console.error(`Invalid value received: ${value}`);
                 throw new Error(`response json not properly parsed`);
             }
         }
         let {value, done: streamDone} = await reader.read();
-        let done = streamDone;
         try{
             let messages = [];
-            let [sender, message] = handle_value(value);
+            let [sender, message, streaming_complete] = handle_value(value);
+            let done = streamDone || streaming_complete;
             messages.push(message);
             let fixed_message = edit_message(messages.join(''));
             const messageDiv = create_messagediv(sender, fixed_message);
@@ -165,8 +168,8 @@ document.addEventListener("DOMContentLoaded", function () {
             chatBox.scrollTop = chatBox.scrollHeight;
             while(!done){
                 let {value, done: streamDone} = await reader.read();
-                done = streamDone;
-                [sender, message] = handle_value(value);
+                [sender, message, streaming_complete] = handle_value(value);
+                done = streamDone || streaming_complete || done;
                 messages.push(message);
                 fixed_message = edit_message(messages.join(''));
                 messageDiv.innerHTML = create_message_html(sender, fixed_message);

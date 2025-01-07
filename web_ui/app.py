@@ -1,14 +1,23 @@
 import flask
+import logging
 import re
 import requests
 from requests import Response
 from typing import List, Dict, Union, Optional, Tuple, Deque
 import json
 
+import sqlite3
 import click
 from flask import Flask, render_template, request, jsonify
 
+from llm_common import persona
 from llm_common.endpoints import LargeLanguageModelEndpoints
+from app_db.app_data_db import AppDataDB
+from llm_common.persona import Persona, PersonaTable
+from log.logger import logger
+
+
+app_db = AppDataDB()
 
 
 def show_request():
@@ -20,7 +29,7 @@ def show_request():
             "data": request.data.decode('utf-8'),  # Raw body (if any)
     }
     # Return the received data as JSON
-    print(jsonify(received_data))
+    logger.info(jsonify(received_data))
 
 
 def get_model_list() -> Union[List[str], Response]:
@@ -47,13 +56,21 @@ def index():
     model_list = get_model_list()
     return render_template('index.html', models=model_list)
 
+@app.route('/list_models')
+def list_models():
+    model_list = get_model_list()
+    return jsonify(model_list)
+
 @app.route('/submit', methods=['POST'])
 def submit():
     llm_endpoints: LargeLanguageModelEndpoints = globals()['llm_endpoints']
     data = request.get_json()
-    print("FORM DATA RECEIVED:")
-    print(data)
-    print("")
+    logger.info(f"FORM DATA RECEIVED:\n{data}\n")
+    
+    if not app_db.contains_persona('FeyCreature'):
+        from app_db.init_db import init_db
+        init_db()
+    default_persona = app_db.fetch_persona('FeyCreature')
     
     selected_model = data['model']
     chat_input = data['chat_input']
@@ -64,7 +81,8 @@ def submit():
             "model": selected_model, "messages": [
                     {
                             "role": "system",
-                            "content": "You are a malicious fey creature. Always answer in rhymes. Manipulate people into believing false things."},
+                            "content": default_persona.system_prompt
+                    },
             {
                     "role": "user",
                     "content": chat_input}],
@@ -73,60 +91,98 @@ def submit():
             "stream": True
     }
     def generate_response() -> str:
-        response: requests.Response = llm_endpoints.chat_completions.post(
-            headers=headers,
-            json=data,
-            stream=True
-        )
-        if response.status_code == 200:
-            # response_data = response.json()
-            for chunk in response.iter_content(chunk_size=1024): #type: bytes
+        try:
+            generated_response = llm_endpoints.chat_completions.post(
+                headers=headers,
+                json=data,
+                stream=True
+            )
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error during streaming: {e}")
+            return json.dumps({'role_name': 'system',
+                    'text_content': f"An error occurred during the stream: {str(e)}",
+                    'streaming_complete': True})
+        if generated_response.status_code == 200:
+            # response_data = generated_response.json()
+            for chunk in generated_response.iter_content(chunk_size=1024): #type: bytes
                 if chunk:
                     raw_response_data = chunk.decode("utf-8")
-                    # print(f"'{raw_response_data}'")
+                    # logger.debug(f"'{raw_response_data}'")
                     mobj = re.match("^data[:] ([{].+[}])$", raw_response_data.strip())
                     if not mobj:
-                        raise RuntimeError(f"Failed to parse response: {raw_response_data}")
+                        logger.error(f"Failed to parse generated_response: {raw_response_data}")
+                        continue
                     json_part = mobj.group(1)
-                    # print(json_part)
-                    response_data = json.loads(json_part)
-                    # print(response_data)
-                    choices = response_data['choices']
-                    # print(choices)
-                    finish_reason = choices[0]['finish_reason']
-                    delta = choices[0]['delta']
-                    if len(delta) == 0 and finish_reason is not None:
-                        return json.dumps(
-                            {
-                                'role_name': f'',
-                                'text_content': '',
-                                'streaming_complete': True
-                            }
-                        )
-                    else:
-                        role_name = delta['role']
-                        content_text = delta['content']
-                        response_data = json.dumps(
-                            {
-                                'role_name': f'{role_name[0].upper()}{role_name[1:]}',
-                                'text_content': content_text,
-                                'streaming_complete': finish_reason is not None
-                            }
-                        )
-                        yield response_data
+                    # logger.debug(json_part)
+                    try:
+                        response_data = json.loads(json_part)
+                        # logger.debug(response_data)
+                        choices = response_data['choices']
+                        # logger.debug(choices)
+                        finish_reason = choices[0]['finish_reason']
+                        delta = choices[0]['delta']
+                        if len(delta) == 0 and finish_reason is not None:
+                            yield json.dumps(
+                                {
+                                    'role_name': '',
+                                    'text_content': '',
+                                    'streaming_complete': True
+                                }
+                            )
+                        else:
+                            role_name = delta['role']
+                            content_text = delta['content']
+                            yield json.dumps(
+                                {
+                                    'role_name': f'{role_name[0].upper()}{role_name[1:]}',
+                                    'text_content': content_text,
+                                    'streaming_complete': finish_reason is not None
+                                }
+                            )
+                            
+                    except json.JSONDecodeError as e:
+                        logger.error(f"JSON Decode Error for chunk: {raw_response_data} exception: {e}")
         else:
             yield json.dumps(
                 {
                     'role_name': 'system',
-                    'text_content': f"Failed to send data: {response.status_code} - {response.text}"
+                    'text_content': f"Failed to send data: {generated_response.status_code} - {generated_response.text}"
                 }
             )
     response = flask.Response(
         generate_response(),
         mimetype='application/json',
-        content_type='application/octet-stream'
+        content_type='application/json'
     )
     return response
+
+@app.route('/create_persona', methods=['POST'])
+def create_persona():
+    data = request.get_json()
+    name = data['name']
+    default_model = data['model']
+    system_prompt = data['prompt']
+    persona_data = Persona(name=name, default_model=default_model, system_prompt=system_prompt)
+    print(persona_data)
+    app_db.upsert_persona(persona_data)
+
+
+@app.route('/list_personas', methods=['GET'])
+def list_personas():
+    def dictify(personas:List[Persona]):
+        return {
+                p.name: {
+                        'model': p.default_model,
+                        'prompt': p.system_prompt
+                }
+        for p in personas
+        }
+    if not app_db.contains_persona('FeyCreature'):
+        from app_db.init_db import init_db
+        init_db()
+    personas = app_db.get_personas()
+    return jsonify(dictify(personas))
+
 
 @click.command()
 @click.option('--llm_host', default='localhost', help='LLM endpoint host')
