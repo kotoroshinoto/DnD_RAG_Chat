@@ -87,10 +87,11 @@ document.addEventListener("DOMContentLoaded", function () {
             },
             body: JSON.stringify(payload)
         })
-            .then(response => response.json())
-            .then(data => {
-                console.log(data);
-                appendMessage(data['role_name'], data['text_content'])
+            .then(async (response) => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                await streamMessage(response);
             })
             .catch(error => {
                 console.error('Error communicating with LM Studio:', error);
@@ -98,11 +99,7 @@ document.addEventListener("DOMContentLoaded", function () {
             });
     }
 
-    // Stream message to chat
-    function streamMessage(sender, message) {
-        const messageDiv = document.createElement("div");
-        messageDiv.classList.add("message", sender === 'user' ? 'user-message' : 'lm-message');
-
+    function edit_message(message) {
         // Check for code blocks and apply Prism syntax highlighting
         if (message.includes('```')) {
             message = message.replace(/```(.*?)\n([\s\S]*?)```/g, (match, lang, code) => {
@@ -110,17 +107,14 @@ document.addEventListener("DOMContentLoaded", function () {
                 return `<pre><code class="language-${lang}">${Prism.highlight(escapedCode, Prism.languages[lang] || Prism.languages.markup, lang)}</code></pre>`;
             });
         }
+        message.replace(/\n/g, '<br>');
+        return message
+    }
 
-        messageDiv.innerHTML = `
-                    <img src="${sender === 'user' ? USER_AVATAR : LM_AVATAR}" alt="${sender}">
-                    <div class="content">
-                        <span>${message.replace(/\n/g, '<br>')}</span>
-                        ${message.includes('```') ? `<button class="copy-button">Copy</button>` : ''}
-                    </div>
-                `;
-        chatBox.appendChild(messageDiv);
-        chatBox.scrollTop = chatBox.scrollHeight;
-
+    function create_messagediv(sender, message) {
+        const messageDiv = document.createElement("div");
+        messageDiv.classList.add("message", sender === 'user' ? 'user-message' : 'lm-message');
+        messageDiv.innerHTML = ``;
         // Add copy button functionality
         const copyButton = messageDiv.querySelector('.copy-button');
         if (copyButton) {
@@ -129,41 +123,67 @@ document.addEventListener("DOMContentLoaded", function () {
                     .then(() => alert('Code copied to clipboard!'))
                     .catch(err => console.error('Failed to copy text: ', err));
             });
+        }
+        return messageDiv;
+    }
+
+    function create_message_html(sender, message){
+        return `
+            <img src="${sender === 'user' ? USER_AVATAR : LM_AVATAR}" alt="${sender}">
+            <div class="content">
+                <span>${message}</span>
+                ${message.includes('```') ? `<button class="copy-button">Copy</button>` : ''}
+            </div>
+        `
+    }
+
+    // Stream message to chat
+    async function streamMessage(response) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        function handle_value(value){
+            if (value) {
+                const chunk = decoder.decode(value, {stream: true});
+                const response_json = JSON.parse(chunk);
+                const sender = response_json['role_name'];
+                const message = response_json['text_content'];
+                return [sender, message];
+            } else {
+                throw new Error(`response json not properly parsed`);
+            }
+        }
+        let {value, done: streamDone} = await reader.read();
+        let done = streamDone;
+        try{
+            let messages = [];
+            let [sender, message] = handle_value(value);
+            messages.push(message);
+            let fixed_message = edit_message(messages.join(''));
+            const messageDiv = create_messagediv(sender, fixed_message);
+            messageDiv.innerHTML = create_message_html(sender, fixed_message);
+            chatBox.appendChild(messageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+            while(!done){
+                let {value, done: streamDone} = await reader.read();
+                done = streamDone;
+                [sender, message] = handle_value(value);
+                messages.push(message);
+                fixed_message = edit_message(messages.join(''));
+                messageDiv.innerHTML = create_message_html(sender, fixed_message);
+            }
+        } catch (e) {
+            console.error('Error receiving streamed response:', e);
+            appendMessage('System', 'Failed to process streamed response.');
         }
     }
 
     // Append message to chat with syntax highlighting
     function appendMessage(sender, message) {
-        const messageDiv = document.createElement("div");
-        messageDiv.classList.add("message", sender === 'user' ? 'user-message' : 'lm-message');
-
-        // Check for code blocks and apply Prism syntax highlighting
-        if (message.includes('```')) {
-            message = message.replace(/```(.*?)\n([\s\S]*?)```/g, (match, lang, code) => {
-                const escapedCode = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                return `<pre><code class="language-${lang}">${Prism.highlight(escapedCode, Prism.languages[lang] || Prism.languages.markup, lang)}</code></pre>`;
-            });
-        }
-
-        messageDiv.innerHTML = `
-                    <img src="${sender === 'user' ? USER_AVATAR : LM_AVATAR}" alt="${sender}">
-                    <div class="content">
-                        ${message.replace(/\n/g, '<br>')}
-                        ${message.includes('```') ? `<button class="copy-button">Copy</button>` : ''}
-                    </div>
-                `;
+        let fixed_message = edit_message(message);
+        const messageDiv = create_messagediv(sender, fixed_message);
+        messageDiv.innerHTML = create_message_html(sender, fixed_message);
         chatBox.appendChild(messageDiv);
         chatBox.scrollTop = chatBox.scrollHeight;
-
-        // Add copy button functionality
-        const copyButton = messageDiv.querySelector('.copy-button');
-        if (copyButton) {
-            copyButton.addEventListener('click', () => {
-                navigator.clipboard.writeText(message.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>'))
-                    .then(() => alert('Code copied to clipboard!'))
-                    .catch(err => console.error('Failed to copy text: ', err));
-            });
-        }
     }
 
     // Event Listeners

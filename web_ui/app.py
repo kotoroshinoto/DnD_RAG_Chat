@@ -92,14 +92,28 @@ def submit():
                     response_data = json.loads(json_part)
                     # print(response_data)
                     choices = response_data['choices']
-                    role_name = choices[0]['delta']['role']
-                    content_text = choices[0]['delta']['content']
-                    yield json.dumps(
-                        {
-                            'role_name': f'{role_name[0].upper()}{role_name[1:]}',
-                            'text_content': content_text,
-                        }
-                    )
+                    # print(choices)
+                    finish_reason = choices[0]['finish_reason']
+                    delta = choices[0]['delta']
+                    if len(delta) == 0 and finish_reason is not None:
+                        return json.dumps(
+                            {
+                                'role_name': f'',
+                                'text_content': '',
+                                'streaming_complete': True
+                            }
+                        )
+                    else:
+                        role_name = delta['role']
+                        content_text = delta['content']
+                        response_data = json.dumps(
+                            {
+                                'role_name': f'{role_name[0].upper()}{role_name[1:]}',
+                                'text_content': content_text,
+                                'streaming_complete': finish_reason is not None
+                            }
+                        )
+                        yield response_data
         else:
             yield json.dumps(
                 {
