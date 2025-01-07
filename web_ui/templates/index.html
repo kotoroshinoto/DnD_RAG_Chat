@@ -16,29 +16,51 @@
 </head>
 <body>
 
-<div class="chat-container">
-    <!-- Model Selector -->
-    <div class="model-selector">
-        <label for="model-selector">Model:</label>
-        <select id="model-selector"></select>
-    </div>
-
-    <!-- Chat Box -->
-    <div class="chat-box" id="chat-box"></div>
-
-    <!-- Chat Input -->
-    <div class="chat-input">
-        <div class="file-upload">
-            <label for="file-input">📎 Attach Files</label>
-            <input type="file" id="file-input" multiple>
+    <div class="chat-container">
+        <!-- Model Selector -->
+        <div class="model-selector">
+            <label for="model-selector">Model:</label>
+            <select id="model-selector"></select>
         </div>
-        <textarea id="user-message" placeholder="Type your message here..."></textarea>
-        <button id="send-message">Send</button>
-    </div>
 
-    <!-- File Preview -->
-    <div class="file-preview" id="file-preview"></div>
-</div>
+        <!-- Persona Selector -->
+        <div class="model-selector">
+            <div class="persona-selection">
+                <label class="persona-radio">
+                    <input type="radio" name="option" value="persona1" checked="true">
+                    <img src="https://placehold.co/100" alt="Option 1">
+                </label>
+                <label class="persona-radio">
+                    <input type="radio" name="option" value="persona2">
+                    <img src="https://placehold.co/100" alt="Option 2">
+                </label>
+                <label class="persona-radio">
+                    <input type="radio" name="option" value="persona3">
+                    <img src="https://placehold.co/100" alt="Option 3">
+                </label>
+                <label class="persona-radio">
+                    <input type="radio" name="option" value="persona4">
+                    <img src="https://placehold.co/100" alt="Option 4">
+                </label>
+            </div>
+        </div>
+
+        <!-- Chat Box -->
+        <div class="chat-box" id="chat-box"></div>
+
+        <!-- Chat Input -->
+        <div class="chat-input">
+            <div class="file-upload">
+                <label for="file-input">📎 Attach Files</label>
+                <input type="file" id="file-input" multiple>
+            </div>
+            <textarea id="user-message" placeholder="Type your message here..."></textarea>
+            <button id="send-message">Send</button>
+        </div>
+
+        <!-- File Preview -->
+        <div class="file-preview" id="file-preview"></div>
+    </div>
 
 <div class="theme-selector">
     <label for="theme-selector">Theme:</label>
