@@ -8,7 +8,10 @@ import json
 
 import sqlite3
 import click
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from flask_session import Session
+import uuid
+from flask_sqlalchemy import SQLAlchemy
 
 from llm_common import persona
 from llm_common.endpoints import LargeLanguageModelEndpoints
@@ -19,6 +22,19 @@ from log.logger import logger
 
 app_db = AppDataDB()
 
+app = Flask(__name__)
+
+app.secret_key = 'your_secret_key'  # Required for sessions
+
+# Set up SQLAlchemy for SQLite
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///flask.db'
+db = SQLAlchemy(app)
+
+app.config['SESSION_TYPE'] = 'sqlalchemy'
+app.config['SESSION_SQLALCHEMY'] = db  # SQLite session storage
+app.config['SESSION_PERMANENT'] = False  # Set permanent session (optional)
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+Session(app)
 
 def show_request():
     # Dictionary to hold all received data
@@ -49,10 +65,16 @@ def get_model_list() -> Union[List[str], Response]:
         results.append(item['id'])
     return results
 
-app = Flask(__name__)
+
+def check_session() -> uuid.UUID:
+    if 'session_id' not in session:
+        session['session_id'] = str(uuid.uuid4())
+    logger.info(f"session id: {session['session_id']}")
+    return session['session_id']
 
 @app.route('/')
 def index():
+    session_id = check_session()
     model_list = get_model_list()
     return render_template('index.html', models=model_list)
 
@@ -63,6 +85,7 @@ def list_models():
 
 @app.route('/submit', methods=['POST'])
 def submit():
+    session_id = check_session()
     llm_endpoints: LargeLanguageModelEndpoints = globals()['llm_endpoints']
     data = request.get_json()
     logger.info(f"FORM DATA RECEIVED:\n{data}\n")
