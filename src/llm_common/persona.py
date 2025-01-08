@@ -1,10 +1,15 @@
-from pydantic import BaseModel
 from sqlalchemy import Column, String
 
 from app_db.decl_base import DeclarativeBaseDnDAppDB
+from dnd_pydantic_base.base_model import DnDAppBaseModel
 
 
-# SQLAlchemy setup
+class Persona(DnDAppBaseModel):
+    name: str
+    default_model: str
+    system_prompt: str
+
+
 class PersonaTable(DeclarativeBaseDnDAppDB):
     __tablename__ = 'personas'
 
@@ -13,15 +18,5 @@ class PersonaTable(DeclarativeBaseDnDAppDB):
     system_prompt = Column(String, nullable=False)
 
     def __repr__(self):
-        return f"<Persona(name={self.name}, default_model={self.default_model}, system_prompt={self.system_prompt})>"
-    
-
-class Persona(BaseModel):
-    class Config:
-        arbitrary_types_allowed = True
-        from_attributes = True
-    name: str
-    default_model: str
-    system_prompt: str
-
-
+        parts = [f'{x.name}={getattr(self, x.name)}' for x in self.__table__.columns]
+        return f"<Persona({', '.join(parts)})>"

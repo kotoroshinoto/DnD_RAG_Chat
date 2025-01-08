@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LM Studio Chat</title>
+    <link
+            rel="icon"
+            type="image/x-icon"
+            href="{{url_for('static', filename='icons/favicon.ico')}}"
+    >
+    <link
+            rel="stylesheet"
+            href="{{url_for('static', filename='css/styles.css')}}"
+    >
+</head>
+<body>
+
+    <div class="chat-container">
+        <!-- Model Selector -->
+        <div class="model-selector">
+            <label for="model-selector">Model:</label>
+            <select id="model-selector"></select>
+        </div>
+
+        <!-- Persona Selector -->
+        <div class="model-selector">
+            <div class="persona-selection">
+                <label class="persona-radio">
+                    <input type="radio" name="option" value="persona1" checked="true">
+                    <img src="https://placehold.co/100" alt="Option 1">
+                </label>
+                <label class="persona-radio">
+                    <input type="radio" name="option" value="persona2">
+                    <img src="https://placehold.co/100" alt="Option 2">
+                </label>
+                <label class="persona-radio">
+                    <input type="radio" name="option" value="persona3">
+                    <img src="https://placehold.co/100" alt="Option 3">
+                </label>
+                <label class="persona-radio">
+                    <input type="radio" name="option" value="persona4">
+                    <img src="https://placehold.co/100" alt="Option 4">
+                </label>
+            </div>
+        </div>
+
+        <!-- Chat Box -->
+        <div class="chat-box" id="chat-box"></div>
+
+        <!-- Chat Input -->
+        <div class="chat-input">
+            <div class="file-upload">
+                <label for="file-input">📎 Attach Files</label>
+                <input type="file" id="file-input" multiple>
+            </div>
+            <textarea id="user-message" placeholder="Type your message here..."></textarea>
+            <button id="send-message">Send</button>
+        </div>
+
+        <!-- File Preview -->
+        <div class="file-preview" id="file-preview"></div>
+    </div>
+
+<div class="theme-selector">
+    <label for="theme-selector">Theme:</label>
+    <select id="theme-selector"></select>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/prism.min.js"></script>
+<script>
+    window.appConfig = {
+        staticBaseUrl: "{{ url_for('static', filename='') }}"
+    };
+    const models = {{models | tojson}};
+    console.log(models);
+</script>
+<script src="{{url_for('static', filename='js/script.js')}}"></script>
+</body>
+</html>
