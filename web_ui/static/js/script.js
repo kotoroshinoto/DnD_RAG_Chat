@@ -271,4 +271,46 @@ document.addEventListener("DOMContentLoaded", function () {
         setCookie('selectedModel', selectedModel, 365);
     });
 
+    fetch('/list_personas')
+        .then(response => response.json())
+        .then(personas => {
+            const personaContainer = document.getElementById('persona-selection');
+            personaContainer.innerHTML = ''; 
+
+  
+            for (const [name, details] of Object.entries(personas)) {
+                const label = document.createElement('label');
+                label.className = 'persona-radio';
+                label.innerHTML = `
+                    <input type="radio" name="option" value="${name}" ${name === 'System' ? 'checked' : ''}>
+                    <img src="https://placehold.co/100" alt="${name}" title="${name}">
+                    <span>${name}</span>
+                `;
+                personaContainer.appendChild(label);
+            }
+
+
+            document.querySelectorAll('input[name="option"]').forEach(radio => {
+                radio.addEventListener('change', () => {
+                    const selectedPersona = document.querySelector('input[name="option"]:checked').value;
+                    fetch('/persona', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ persona: selectedPersona })
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            console.log(data.message);
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                        });
+                });
+            });
+        })
+        .catch(error => {
+            console.error('Failed to load personas:', error);
+        });
+
+
 });

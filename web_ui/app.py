@@ -18,7 +18,7 @@ from log.logger import logger
 
 
 app_db = AppDataDB()
-
+CURRENT_PERSONA = "helper"
 
 def show_request():
     # Dictionary to hold all received data
@@ -66,95 +66,106 @@ def submit():
     llm_endpoints: LargeLanguageModelEndpoints = globals()['llm_endpoints']
     data = request.get_json()
     logger.info(f"FORM DATA RECEIVED:\n{data}\n")
-    
+
     if not app_db.contains_persona('FeyCreature'):
         from app_db.init_db import init_db
         init_db()
-    default_persona = app_db.fetch_persona('FeyCreature')
+    
+    selected_persona = globals().get('CURRENT_PERSONA', 'FeyCreature')
+    logger.info(f"Using persona: {selected_persona}")
+    
+    if selected_persona == 'System':
+        system_prompt = 'You are in system debug mode.'
+    elif selected_persona == 'Helper':
+        system_prompt = 'You are a helpful assistant who specializes in Dungeons & Dragons information.'
+    else:
+        persona_details = app_db.fetch_persona(selected_persona)
+        system_prompt = persona_details.system_prompt if persona_details else "Default persona system prompt."
     
     selected_model = data['model']
     chat_input = data['chat_input']
     
     headers = {'Content-Type': 'application/json'}
     
-    data = {
-            "model": selected_model, "messages": [
-                    {
-                            "role": "system",
-                            "content": default_persona.system_prompt
-                    },
+    payload = {
+        "model": selected_model,
+        "messages": [
             {
-                    "role": "user",
-                    "content": chat_input}],
-            "temperature": 0.7,
-            "max_tokens": -1,
-            "stream": True
+                "role": "system",
+                "content": system_prompt
+            },
+            {
+                "role": "user",
+                "content": chat_input
+            }
+        ],
+        "temperature": 0.7,
+        "max_tokens": -1,
+        "stream": True
     }
+    
     def generate_response() -> str:
         try:
             generated_response = llm_endpoints.chat_completions.post(
                 headers=headers,
-                json=data,
+                json=payload,
                 stream=True
             )
         except requests.exceptions.RequestException as e:
             logger.error(f"Error during streaming: {e}")
-            return json.dumps({'role_name': 'system',
-                    'text_content': f"An error occurred during the stream: {str(e)}",
-                    'streaming_complete': True})
+            yield json.dumps({
+                'role_name': 'system',
+                'text_content': f"An error occurred during the stream: {str(e)}",
+                'streaming_complete': True
+            })
+            return
+        
         if generated_response.status_code == 200:
-            # response_data = generated_response.json()
-            for chunk in generated_response.iter_content(chunk_size=1024): #type: bytes
+            for chunk in generated_response.iter_content(chunk_size=1024): 
                 if chunk:
                     raw_response_data = chunk.decode("utf-8")
-                    # logger.debug(f"'{raw_response_data}'")
                     mobj = re.match("^data[:] ([{].+[}])$", raw_response_data.strip())
                     if not mobj:
                         logger.error(f"Failed to parse generated_response: {raw_response_data}")
                         continue
+                    
                     json_part = mobj.group(1)
-                    # logger.debug(json_part)
                     try:
                         response_data = json.loads(json_part)
-                        # logger.debug(response_data)
                         choices = response_data['choices']
-                        # logger.debug(choices)
                         finish_reason = choices[0]['finish_reason']
                         delta = choices[0]['delta']
+                        
                         if len(delta) == 0 and finish_reason is not None:
-                            yield json.dumps(
-                                {
-                                    'role_name': '',
-                                    'text_content': '',
-                                    'streaming_complete': True
-                                }
-                            )
+                            yield json.dumps({
+                                'role_name': '',
+                                'text_content': '',
+                                'streaming_complete': True
+                            })
                         else:
                             role_name = delta['role']
                             content_text = delta['content']
-                            yield json.dumps(
-                                {
-                                    'role_name': f'{role_name[0].upper()}{role_name[1:]}',
-                                    'text_content': content_text,
-                                    'streaming_complete': finish_reason is not None
-                                }
-                            )
-                            
+                            yield json.dumps({
+                                'role_name': f'{role_name[0].upper()}{role_name[1:]}',
+                                'text_content': content_text,
+                                'streaming_complete': finish_reason is not None
+                            })
+                    
                     except json.JSONDecodeError as e:
                         logger.error(f"JSON Decode Error for chunk: {raw_response_data} exception: {e}")
         else:
-            yield json.dumps(
-                {
-                    'role_name': 'system',
-                    'text_content': f"Failed to send data: {generated_response.status_code} - {generated_response.text}"
-                }
-            )
+            yield json.dumps({
+                'role_name': 'system',
+                'text_content': f"Failed to send data: {generated_response.status_code} - {generated_response.text}"
+            })
+    
     response = flask.Response(
         generate_response(),
         mimetype='application/json',
         content_type='application/json'
     )
     return response
+
 
 @app.route('/create_persona', methods=['POST'])
 def create_persona():
@@ -166,22 +177,64 @@ def create_persona():
     print(persona_data)
     app_db.upsert_persona(persona_data)
 
+@app.route('/persona', methods=['POST'])
+def set_persona():
+    global CURRENT_PERSONA
+
+    data = request.get_json()
+    selected_persona = data.get('persona')
+
+    if not selected_persona:
+        return jsonify({"error": "Persona not provided"}), 400
+
+    if not app_db.contains_persona(selected_persona):
+        return jsonify({"error": f"Persona '{selected_persona}' does not exist"}), 404
+
+    persona_details = app_db.fetch_persona(selected_persona)
+    if not persona_details:
+        return jsonify({"error": f"Failed to retrieve details for persona '{selected_persona}'"}), 500
+
+    CURRENT_PERSONA = selected_persona
+
+    return jsonify({
+        "message": f"Persona set to '{selected_persona}'",
+        "details": {
+            "model": persona_details.default_model,
+            "prompt": persona_details.system_prompt
+        }
+    })
+
 
 @app.route('/list_personas', methods=['GET'])
 def list_personas():
-    def dictify(personas:List[Persona]):
+    def dictify(personas: List[Persona]):
         return {
-                p.name: {
-                        'model': p.default_model,
-                        'prompt': p.system_prompt
-                }
-        for p in personas
+            p.name: {
+                'model': p.default_model,
+                'prompt': p.system_prompt
+            }
+            for p in personas
         }
+
     if not app_db.contains_persona('FeyCreature'):
         from app_db.init_db import init_db
         init_db()
+    
     personas = app_db.get_personas()
-    return jsonify(dictify(personas))
+    persona_dict = dictify(personas)
+
+    # Add static personas
+    persona_dict['System'] = {
+        'model': 'system_model',
+        'prompt': 'You are in system debug mode.'
+    }
+    persona_dict['Helper'] = {
+        'model': 'helper_model',
+        'prompt': 'You are a helpful assistant who specializes in Dungeons & Dragons information.'
+    }
+
+    return jsonify(persona_dict)
+
 
 
 @click.command()
