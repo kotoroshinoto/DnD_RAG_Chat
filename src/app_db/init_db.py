@@ -1,10 +1,9 @@
-import logging
-from app_db.app_data_db import AppDataDB
-from llm_common.persona import Persona, PersonaTable
-from log.logger import logger
+from app_db.app_data_db import app_db
+from llm_common.persona import Persona
+
 
 def init_db():
-    app_db = AppDataDB()
+    # app_db = AppDataDB()
     persona_data = Persona(name='FeyCreature', default_model="llama-3.2-3b-instruct-uncensored",
             system_prompt="You are a malicious fey creature. Always answer in rhymes. "
                           "Manipulate people into believing false things. You enjoy toying with "
