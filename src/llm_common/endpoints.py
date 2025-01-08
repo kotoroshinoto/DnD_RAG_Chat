@@ -1,13 +1,10 @@
 from urlpath import URL
-from pydantic import BaseModel
+from dnd_pydantic_base.base_model import DnDAppBaseModel
 
 
-class LargeLanguageModelEndpoints(BaseModel):
+class LargeLanguageModelEndpoints(DnDAppBaseModel):
     base_url: str
     version_str: str
-    
-    class Config:
-        arbitrary_types_allowed = True
     
     @property
     def base(self) -> URL:

@@ -1,26 +1,27 @@
+from datetime import datetime
+
 import flask
-import logging
 import re
 import requests
 from requests import Response
-from typing import List, Dict, Union, Optional, Tuple, Deque
+from typing import List, Union
 import json
 
-import sqlite3
 import click
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from flask import Flask, render_template, request, jsonify, session
 from flask_session import Session
 import uuid
 from flask_sqlalchemy import SQLAlchemy
 
-from llm_common import persona
-from llm_common.endpoints import LargeLanguageModelEndpoints
-from app_db.app_data_db import AppDataDB
-from llm_common.persona import Persona, PersonaTable
+
+from llm_common.endpoints import  LargeLanguageModelEndpoints
+from app_db.app_data_db import app_db
+from llm_common.persona import Persona
+from llm_common.conversation import Conversation
 from log.logger import logger
 
 
-app_db = AppDataDB()
+# app_db = AppDataDB()
 CURRENT_PERSONA = "helper"
 
 app = Flask(__name__)
@@ -77,6 +78,11 @@ def check_session() -> uuid.UUID:
 def index():
     session_id = check_session()
     model_list = get_model_list()
+    conv_hist = app_db.get_conversation_history(
+            session_id=session_id,
+            persona_name='FeyCreature'
+    )
+    # use conv hist to pre-populate chat
     return render_template('index.html', models=model_list)
 
 @app.route('/list_models')
@@ -87,6 +93,10 @@ def list_models():
 @app.route('/submit', methods=['POST'])
 def submit():
     session_id = check_session()
+    conv_hist = app_db.get_conversation_history(
+            session_id=session_id,
+            persona_name='FeyCreature'
+    )
     llm_endpoints: LargeLanguageModelEndpoints = globals()['llm_endpoints']
     data = request.get_json()
     logger.info(f"FORM DATA RECEIVED:\n{data}\n")
@@ -110,24 +120,39 @@ def submit():
     chat_input = data['chat_input']
     
     headers = {'Content-Type': 'application/json'}
-    
+    user_timestamp = datetime.now()
+    user_conv_item = Conversation(
+        session_id=session_id,
+        persona_name='FeyCreature',
+        message_time=user_timestamp,
+        conversation_sender='user',
+        conversation_content=chat_input
+    )
+    app_db.upsert_conversation_entry(user_conv_item)
     payload = {
-        "model": selected_model,
-        "messages": [
-            {
-                "role": "system",
-                "content": system_prompt
-            },
-            {
-                "role": "user",
-                "content": chat_input
-            }
-        ],
-        "temperature": 0.7,
-        "max_tokens": -1,
-        "stream": True
+            "model": selected_model, "messages": [
+                {
+                        "role": "system",
+                        "content": default_persona.system_prompt
+                },
+                {
+                        "role": "user",
+                        "content": chat_input
+                }
+            ],
+            "temperature": 0.7,
+            "max_tokens": -1,
+            "stream": True
     }
     
+    persona_timestamp = datetime.now()
+    persona_conversation_item = Conversation(
+        session_id=session_id,
+        persona_name='FeyCreature',
+        message_time=user_timestamp,
+        conversation_sender='llm',
+        conversation_content=''
+    )
     def generate_response() -> str:
         try:
             generated_response = llm_endpoints.chat_completions.post(
@@ -178,13 +203,19 @@ def submit():
                     except json.JSONDecodeError as e:
                         logger.error(f"JSON Decode Error for chunk: {raw_response_data} exception: {e}")
         else:
-            yield json.dumps({
-                'role_name': 'system',
-                'text_content': f"Failed to send data: {generated_response.status_code} - {generated_response.text}"
-            })
-    
+            yield json.dumps(
+                {
+                    'role_name': 'system',
+                    'text_content': f"Failed to send data: {generated_response.status_code} - {generated_response.text}"
+                }
+            )
+    generated_response = generate_response()
+    persona_conversation_item.conversation_content = (
+            f'{persona_conversation_item.conversation_content}{generated_response}'
+    )
+    app_db.upsert_conversation_entry(persona_conversation_item)
     response = flask.Response(
-        generate_response(),
+        generated_response,
         mimetype='application/json',
         content_type='application/json'
     )
