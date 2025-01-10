@@ -133,7 +133,7 @@ def submit():
             "model": selected_model, "messages": [
                 {
                         "role": "system",
-                        "content": default_persona.system_prompt
+                        "content": system_prompt
                 },
                 {
                         "role": "user",
