@@ -1,5 +1,4 @@
 document.addEventListener("DOMContentLoaded", function () {
-    const LM_STUDIO_API_URL = 'http://localhost:1234/v1';
     const chatBox = document.getElementById("chat-box");
     const userMessageInput = document.getElementById("user-message");
     const sendButton = document.getElementById("send-message");
@@ -11,12 +10,47 @@ document.addEventListener("DOMContentLoaded", function () {
     const USER_AVATAR = staticBaseUrl +"images/user_avatar.png";
     const LM_AVATAR = staticBaseUrl +"images/lm_avatar.png";
     const THEMES_JSON = staticBaseUrl + "config/themes.json";
+    const socket = io();
 
-    models.forEach(model => {
-        const option = document.createElement("option");
+    socket.on('connect', function() {
+        socket.emit('print client message', {data: 'I\'m connected!'});
+        // request initial data
+        // request models
+        socket.emit('client request models');
+        // request chat history
+        socket.emit('client request chat history');
+    });
+
+    socket.on('client receive models', function(models) {
+        socket.emit('print client message', {data: 'Models Received'});
+        console.log(models)
+        modelSelector.innerHTML = '';
+        // Add a default option
+        const defaultOption = document.createElement("option");
+        defaultOption.value = '';
+        defaultOption.textContent = 'Select a model';
+        defaultOption.disabled = true;
+        defaultOption.selected = true;
+        modelSelector.appendChild(defaultOption);
+
+        models.forEach(model => {
+            if (typeof model === 'string') { // Ensure model is a string
+                const option = document.createElement("option");
                 option.value = model;
                 option.textContent = model;
                 modelSelector.appendChild(option);
+            }
+        });
+        socket.emit('print client message', { data: 'Models processed and added to dropdown' });
+    });
+
+    socket.on('client receive chat history', function(chat_history){
+        socket.emit('print client message', {data: 'Chat History Received'});
+        socket.emit('print client message', {data: 'Chat History Loaded into Chat Interface'});
+    });
+
+    socket.on('client receive llm chat response', function(){
+
     });
 
     // Display selected files

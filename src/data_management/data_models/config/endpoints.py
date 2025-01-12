@@ -4,11 +4,12 @@ from data_management.data_models.dnd_pydantic_base.base_model import DnDAppBaseM
 
 class LargeLanguageModelEndpoints(DnDAppBaseModel):
     base_url: str
+    port: int
     version_str: str
     
     @property
     def base(self) -> URL:
-        return URL(self.base_url) / self.version_str
+        return URL(f"{self.base_url}:{self.port}") / self.version_str
     
     @property
     def models(self) -> URL:

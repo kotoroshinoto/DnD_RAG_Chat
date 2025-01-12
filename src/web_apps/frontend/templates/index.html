@@ -24,12 +24,6 @@
     const models = {{models | tojson}};
     console.log(models);
     </script>
-    <script type="text/javascript" charset="utf-8">
-        var socket = io();
-        socket.on('connect', function() {
-            socket.emit('my event', {data: 'I\'m connected!'});
-        });
-    </script>
     <div class="chat-container">
         <!-- Model Selector -->
         <div class="model-selector">
