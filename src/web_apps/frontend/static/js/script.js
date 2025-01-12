@@ -12,6 +12,31 @@ document.addEventListener("DOMContentLoaded", function () {
     const THEMES_JSON = staticBaseUrl + "config/themes.json";
     const socket = io();
 
+    const not_expecting_llm_streamed_response_message = function(){
+        console.warn("LLMs streamed response message received when one was not expected")
+        // this should be removed from the socket while listening / receiving an expected response and placed back after completion
+    }
+
+    const not_expecting_llm_streamed_response_end_of_stream = function(){
+        console.warn("LLM streamed end of stream notification received when one was not expected")
+        // this should be removed from the socket while listening / receiving an expected response and placed back after completion
+    }
+
+    const begin_expecting_llm_streamed_response = function(message_handler, eos_handler){
+        socket.off('llm streamed response message')
+        socket.off('llm streamed response end of stream')
+        socket.on('llm streamed response message', message_handler)
+        socket.on('llm streamed response end of stream', eos_handler)
+    }
+    const stop_expecting_llm_streamed_response = function(){
+        socket.off('llm streamed response message')
+        socket.off('llm streamed response end of stream')
+        socket.on('llm streamed response message', not_expecting_llm_streamed_response_message)
+        socket.on('llm streamed response end of stream', not_expecting_llm_streamed_response_end_of_stream)
+    }
+
+    stop_expecting_llm_streamed_response();
+
     socket.on('connect', function() {
         socket.emit('print client message', {data: 'I\'m connected!'});
         // request initial data

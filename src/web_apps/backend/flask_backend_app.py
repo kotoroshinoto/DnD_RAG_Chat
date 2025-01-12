@@ -1,7 +1,7 @@
 import json
 import re
 from datetime import datetime
-from typing import List, Union, Dict, Optional
+from typing import Callable, List, Union, Dict, Optional
 
 import flask
 import requests
@@ -43,7 +43,7 @@ class FlaskBackEndApp(FlaskDrivenWebApp):
         )
     
     def _associate_routes(self):
-        self._app.add_url_rule('/', 'index', self._flask_serve_route_index_get, methods=['GET'])
+        self._app.add_url_rule('/', 'index', self.__class__._flask_serve_route_index_get, methods=['GET'])
         self._app.add_url_rule('/', 'llm', self._flask_serve_route_index, methods=['POST'])
         self._app.add_url_rule('/session', 'session', self._flask_serve_route_index, methods=['POST'])
         self._app.add_url_rule('/persona', 'persona', self._flask_serve_route_persona, methods=['POST'])
@@ -51,62 +51,58 @@ class FlaskBackEndApp(FlaskDrivenWebApp):
     @staticmethod
     def show_request():
         # Dictionary to hold all received data
-        received_data = {"method": request.method, "headers": dict(request.headers),
-                         "args": request.args.to_dict(),  # Query parameters
-                         "form": request.form.to_dict(),  # Form data (POST)
-                         "json": request.get_json(silent=True),  # JSON body (if any)
-                         "data": request.data.decode('utf-8'),  # Raw body (if any)
-                         }
+        received_data = {
+            "method": request.method,
+            "headers": dict(request.headers),
+            "args": request.args.to_dict(),  # Query parameters
+            "form": request.form.to_dict(),  # Form data (POST)
+            "json": request.get_json(silent=True),  # JSON body (if any)
+            "data": request.data.decode('utf-8'),  # Raw body (if any)
+        }
         # Return the received data as JSON
         logger.info(jsonify(received_data))
     
-    def _flask_serve_route_index_get(self):
+    @staticmethod
+    def _flask_serve_route_index_get():
         # populate a page outlining the endpoints and their usage
+        return render_template('index.html')
+    
+    def _handle_serving_action_func_dict(self, action_funcs: Dict[str, Callable]):
         if self._debug:
             self.show_request()
         data = request.get_json()
-        return jsonify({})
+        action_type = data['action_type']
+        if action_type not in action_funcs.keys():
+            return jsonify({'error': 'Invalid request'}), 400
+        result = action_funcs[action_type](data)
+        return jsonify(result)
     
     def _flask_serve_route_index(self):
         # llm communication endpoint
-        if self._debug:
-            self.show_request()
-        data = request.get_json()
-        action_type = data['action_type']
-        action_funcs = dict()
-        if action_type not in action_funcs.keys():
-            return jsonify({'error': 'Invalid request'}), 400
-        result = action_funcs[action_type](data)
-        return jsonify(result)
+        return self._handle_serving_action_func_dict({
+            'list': self.list_models,
+            'chat': self.submit,
+        })
     
     def _flask_serve_route_persona(self):
         # persona creation/update/deletion endpoint
-        if self._debug:
-            self.show_request()
-        data = request.get_json() # type: Dict[str, str]
-        action_type = data['action_type']
-        action_funcs = {
-                'list':self.list_personas,
-                'upsert':self.create_persona,
-                'select':self.set_persona,
-                'delete':self.delete_persona,
-        }
-        if action_type not in action_funcs.keys():
-            return jsonify({'error':'Invalid request'}), 400
-        result = action_funcs[action_type](data)
-        return jsonify(result)
+        return self._handle_serving_action_func_dict({
+            'list':self.list_personas,
+            'upsert':self.create_persona,
+            'details':self.get_persona_details,
+            'select':self.set_persona,
+            'delete':self.delete_persona,
+            
+        })
     
     def _flask_serve_route_session(self):
         # session history / settings endpoint user persistence
-        if self._debug:
-            self.show_request()
-        data = request.get_json()
-        action_type = data['action_type']
-        action_funcs = dict()
-        if action_type not in action_funcs.keys():
-            return jsonify({'error': 'Invalid request'}), 400
-        result = action_funcs[action_type](data)
-        return jsonify(result)
+        return self._handle_serving_action_func_dict({
+            'register': self.record_unique_user,
+            'delete': self.delete_unique_user,
+            'history': self.get_conversation_history_for_user,
+            'persona': self.get_selected_persona_for_user,
+        })
 
     def get_model_list(self) -> Union[List[str], Response]:
         models_path = self._llm_endpoints.models
@@ -274,5 +270,20 @@ class FlaskBackEndApp(FlaskDrivenWebApp):
         
         return jsonify(persona_dict)
     
+    def get_persona_details(self):
+        ...
+    
     def delete_persona(self):
+        ...
+    
+    def get_conversation_history_for_user(self):
+        ...
+    
+    def record_unique_user(self):
+        ...
+    
+    def delete_unique_user(self):
+        ...
+    
+    def get_selected_persona_for_user(self):
         ...

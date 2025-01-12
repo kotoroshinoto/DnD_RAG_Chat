@@ -9,7 +9,7 @@ import requests
 from flask import jsonify, render_template, request, session
 from requests import Response
 
-from data_management.app_db.app_data_db import app_db
+# from data_management.app_db.app_data_db import app_db
 from data_management.data_models.config.endpoints import LargeLanguageModelEndpoints
 from data_management.data_models.data_classes.conversation import Conversation
 from data_management.data_models.data_classes.persona import Persona
@@ -109,15 +109,12 @@ class FlaskFrontEndApp(FlaskDrivenWebApp):
         session_id = self.check_session()
         logger.debug(f"{session_id} requests list of personas")
         
-        def dictify(personas: List[Persona]):
-            return {p.name: {'model': p.default_model, 'prompt': p.system_prompt} for p in personas}
-        
         if not app_db.contains_persona('FeyCreature'):
             from data_management.app_db.init_db import init_db
             init_db()
         
         personas = app_db.get_personas()
-        persona_dict = dictify(personas)
+        persona_dict = {p.name: {'model': p.default_model, 'prompt': p.system_prompt} for p in personas}
         
         # Add static personas
         persona_dict['System'] = {'model': 'system_model', 'prompt': 'You are in system debug mode.'}
@@ -228,9 +225,17 @@ class FlaskFrontEndApp(FlaskDrivenWebApp):
         return response
         
     def _associate_socketio_events(self):
+        self._socketio.on_event('client message print', self._client_message_print)
         self._socketio.on_event('client request models', self._client_requests_models)
+        
         self._socketio.on_event('client request chat history', self._client_requests_chat_history)
+        self._socketio.on_event('client send chat to llm', self._client_send_chat_to_llm)
+        
         self._socketio.on_event('client request persona upsert', self._client_request_persona_upsert)
+        self._socketio.on_event('client request persona delete', self._client_request_persona_delete)
+        self._socketio.on_event('client request persona details', self._client_request_persona_details)
+        self._socketio.on_event('client request persona set', self._client_request_persona_set)
+        self._socketio.on_event('client request persona list', self._client_request_persona_list)
     
     def run(self):
         self._socketio.run(
