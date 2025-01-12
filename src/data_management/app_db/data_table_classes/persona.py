@@ -1,13 +1,6 @@
 from sqlalchemy import Column, String
 
-from app_db.decl_base import DeclarativeBaseDnDAppDB
-from dnd_pydantic_base.base_model import DnDAppBaseModel
-
-
-class Persona(DnDAppBaseModel):
-    name: str
-    default_model: str
-    system_prompt: str
+from data_management.app_db.decl_base import DeclarativeBaseDnDAppDB
 
 
 class PersonaTable(DeclarativeBaseDnDAppDB):

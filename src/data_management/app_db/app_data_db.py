@@ -6,9 +6,11 @@ from typing import List
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app_db.decl_base import DeclarativeBaseDnDAppDB
-from llm_common.persona import Persona, PersonaTable
-from llm_common.conversation import Conversation, ConversationTable
+from data_management.app_db.decl_base import DeclarativeBaseDnDAppDB
+from data_management.app_db.data_table_classes.persona import PersonaTable
+from data_management.data_models.data_classes.persona import Persona
+from data_management.app_db.data_table_classes.conversation import ConversationTable
+from data_management.data_models.data_classes.conversation import Conversation
 from log.logger import logger
 
 

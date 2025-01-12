@@ -1,5 +1,5 @@
 from urlpath import URL
-from dnd_pydantic_base.base_model import DnDAppBaseModel
+from data_management.data_models.dnd_pydantic_base.base_model import DnDAppBaseModel
 
 
 class LargeLanguageModelEndpoints(DnDAppBaseModel):

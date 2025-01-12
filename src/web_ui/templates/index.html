@@ -15,12 +15,28 @@
     >
 </head>
 <body>
-
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA==" crossorigin="anonymous"></script>
+    <script type="text/javascript" charset="utf-8">
+    window.appConfig = {
+        staticBaseUrl: "{{ url_for('static', filename='') }}"
+    };
+    const models = {{models | tojson}};
+    console.log(models);
+    </script>
+    <script type="text/javascript" charset="utf-8">
+        var socket = io();
+        socket.on('connect', function() {
+            socket.emit('my event', {data: 'I\'m connected!'});
+        });
+    </script>
     <div class="chat-container">
         <!-- Model Selector -->
         <div class="model-selector">
             <label for="model-selector">Model:</label>
             <select id="model-selector"></select>
+            <textarea id="system-prompt-customize"
+                         placeholder="Type llm instructions here..."></textarea>
         </div>
 
         <!-- Persona Selector -->
@@ -50,14 +66,6 @@
     <select id="theme-selector"></select>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/prism.min.js"></script>
-<script>
-    window.appConfig = {
-        staticBaseUrl: "{{ url_for('static', filename='') }}"
-    };
-    const models = {{models | tojson}};
-    console.log(models);
-</script>
 <script src="{{url_for('static', filename='js/script.js')}}"></script>
 </body>
 </html>

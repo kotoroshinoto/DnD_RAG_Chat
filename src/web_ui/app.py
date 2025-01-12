@@ -14,29 +14,38 @@ import uuid
 from flask_sqlalchemy import SQLAlchemy
 
 
-from llm_common.endpoints import  LargeLanguageModelEndpoints
-from app_db.app_data_db import app_db
-from llm_common.persona import Persona
-from llm_common.conversation import Conversation
+from data_management.data_models.config.endpoints import  LargeLanguageModelEndpoints
+from data_management.app_db.app_data_db import app_db
+from data_management.data_models.data_classes.persona import Persona
+from data_management.app_db.app_data_db import Conversation
 from log.logger import logger
+from flask_socketio import SocketIO
+
+socketio = SocketIO()
+
+def create_webapp() -> Flask:
+    app = Flask(__name__)
+    
+    app.secret_key = 'your_secret_key'  # Required for sessions
+    
+    # Set up SQLAlchemy for SQLite
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///flask.db'
+    db = SQLAlchemy(app)
+    
+    app.config['SESSION_TYPE'] = 'sqlalchemy'
+    app.config['SESSION_SQLALCHEMY'] = db  # SQLite session storage
+    app.config['SESSION_PERMANENT'] = False  # Set permanent session (optional)
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    Session(app)
+    socketio.init_app(app)
+    return app
+
+app = create_webapp()
 
 
 # app_db = AppDataDB()
 CURRENT_PERSONA = "helper"
 
-app = Flask(__name__)
-
-app.secret_key = 'your_secret_key'  # Required for sessions
-
-# Set up SQLAlchemy for SQLite
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///flask.db'
-db = SQLAlchemy(app)
-
-app.config['SESSION_TYPE'] = 'sqlalchemy'
-app.config['SESSION_SQLALCHEMY'] = db  # SQLite session storage
-app.config['SESSION_PERMANENT'] = False  # Set permanent session (optional)
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-Session(app)
 
 def show_request():
     # Dictionary to hold all received data
@@ -102,7 +111,7 @@ def submit():
     logger.info(f"FORM DATA RECEIVED:\n{data}\n")
 
     if not app_db.contains_persona('FeyCreature'):
-        from app_db.init_db import init_db
+        from data_management.app_db.init_db import init_db
         init_db()
     
     selected_persona = globals().get('CURRENT_PERSONA', 'FeyCreature')
@@ -272,7 +281,7 @@ def list_personas():
         }
 
     if not app_db.contains_persona('FeyCreature'):
-        from app_db.init_db import init_db
+        from data_management.app_db.init_db import init_db
         init_db()
     
     personas = app_db.get_personas()
@@ -290,19 +299,37 @@ def list_personas():
 
     return jsonify(persona_dict)
 
+# socket stuff
+
+
+@socketio.on('message')
+def handle_message(data):
+    print('received message: ' + data)
+
+
+@socketio.on('json')
+def handle_json(json_txt):
+    print('received json: ' + str(json_txt))
+    
+
+@socketio.on('my event')
+def handle_my_custom_event(json_txt):
+    print('received json: ' + str(json_txt))
+    
 
 
 @click.command()
 @click.option('--llm_host', default='localhost', help='LLM endpoint host')
 @click.option('--llm_port', default=1234, help='LLM endpoint port')
 @click.option('--version_str', default='v1', help='LLM endpoint version str')
-@click.option('--port', default=2345, help='Port to listen on')
-def main_cli(llm_host, llm_port, version_str, port):
+@click.option('--host', default='0.0.0.0', help='webapp hostname or ip to listen on')
+@click.option('--port', default=2345, help='Port for webapp to listen on')
+def main_cli(llm_host, llm_port, version_str, host, port):
     globals()['llm_endpoints'] = LargeLanguageModelEndpoints(
         base_url=f"http://{llm_host}:{llm_port}",
         version_str=version_str,
     )
-    app.run(debug=True, port=port)
+    socketio.run(app, host=host, port=port, debug=True)
 
 if __name__ == "__main__":
     main_cli()

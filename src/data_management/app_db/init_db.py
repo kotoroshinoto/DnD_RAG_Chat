@@ -1,5 +1,5 @@
-from app_db.app_data_db import app_db
-from llm_common.persona import Persona
+from data_management.app_db.app_data_db import app_db
+from data_management.data_models.data_classes.persona import Persona
 
 
 def init_db():

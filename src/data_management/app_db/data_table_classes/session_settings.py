@@ -1,21 +1,11 @@
-from typing import Optional
 from sqlalchemy import Column, String
-import uuid
 
-from app_db.decl_base import DeclarativeBaseDnDAppDB
-from dnd_pydantic_base.base_model import DnDAppBaseModel
-from llm_common.uuid_type import UUIDType
-
-
-class SessionSettings(DnDAppBaseModel):
-    session_id: uuid.UUID
-    selected_persona_name: Optional[str]
-    custom_mode_model: str
-    custom_mode_system_prompt: str
+from data_management.app_db.decl_base import DeclarativeBaseDnDAppDB
+from data_management.data_models.helper_classes.uuid_type import UUIDType
 
 
 class SessionSettingsTable(DeclarativeBaseDnDAppDB):
-    __tablename__ = 'session_settings'
+    __tablename__ = 'session_settings.py'
 
     session_id = Column(UUIDType, nullable=False, primary_key=True)
     selected_persona_name = Column(String, nullable=True)

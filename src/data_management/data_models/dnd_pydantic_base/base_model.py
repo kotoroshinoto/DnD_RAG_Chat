@@ -6,3 +6,5 @@ class DnDAppBaseModel(BaseModel):
             arbitrary_types_allowed=True,
             from_attributes=True,
     )
+
+__all__ = ['DnDAppBaseModel']

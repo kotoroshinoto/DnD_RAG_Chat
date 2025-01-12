@@ -1,19 +1,7 @@
-import datetime
-import uuid
-
 from sqlalchemy import Column, DateTime, String
 
-from app_db.decl_base import DeclarativeBaseDnDAppDB
-from dnd_pydantic_base.base_model import DnDAppBaseModel
-from llm_common.uuid_type import UUIDType
-
-
-class Conversation(DnDAppBaseModel):
-    session_id: uuid.UUID
-    persona_name: str
-    message_time: datetime.datetime
-    conversation_sender: str
-    conversation_content: str
+from data_management.app_db.decl_base import DeclarativeBaseDnDAppDB
+from data_management.data_models.helper_classes.uuid_type import UUIDType
 
 
 class ConversationTable(DeclarativeBaseDnDAppDB):
